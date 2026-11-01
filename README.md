@@ -2,7 +2,7 @@
 
 A community-maintained Docker image for [OpenCode](https://github.com/anomalyco/opencode), built on **Ubuntu 22.04 LTS**.
 
-This fork of [pilinux/opencode-docker](https://github.com/pilinux/opencode-docker) is intended for running **OpenCode 2** with persistent data and configurable user/group IDs. OpenCode runs as a non-root user, with passwordless `sudo` available when system packages need to be installed inside the container.
+This fork is intended for running **OpenCode 2** with persistent data and configurable user/group IDs. OpenCode runs as a non-root user, with passwordless `sudo` available when system packages need to be installed inside the container.
 
 Images are built **manually** using GitHub Actions and published to GitHub Container Registry (GHCR):
 
@@ -38,7 +38,7 @@ Images are built **manually** using GitHub Actions and published to GitHub Conta
    docker compose logs -f opencode
    ```
 
-The image's default command starts the OpenCode server on port **4096 inside the container**. You can override this with `command:` in Docker Compose.
+The image's default command starts the OpenCode server on port **4096**. You can override this with `command:` in Docker Compose.
 
 The OpenCode server listens on port 4096 inside the container and is accessible at http://172.17.0.1:4096 on the Docker host.
 
