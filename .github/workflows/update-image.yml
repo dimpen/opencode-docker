@@ -3,76 +3,19 @@ name: Update Docker Image
 on:
   # schedule:
   #   - cron: '0 */4 * * *'  # Every 4 hours
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      opencode_version:
+        description: 'OpenCode version to build (e.g. 2.2.5)'
+        required: true
+        type: string
 
 concurrency:
   group: update-docker-image
   cancel-in-progress: false
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    outputs:
-      needs_update: ${{ steps.compare.outputs.needs_update }}
-      version: ${{ steps.release.outputs.version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Get latest release
-        id: release
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const { data } = await github.rest.repos.getLatestRelease({
-              owner: 'anomalyco',
-              repo: 'opencode'
-            });
-            const tag = data.tag_name;
-            const version = tag.startsWith('v') ? tag.slice(1) : tag;
-            core.setOutput('version', version);
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get current image version
-        id: current
-        run: |
-          read_image_version() {
-            docker run --rm "ghcr.io/pilinux/opencode:$1" opencode --version 2>/dev/null \
-              | sed -n 's/^v//; /^[0-9]\+\.[0-9]\+\.[0-9]\+$/p' \
-              | tail -1
-          }
-
-          TARGET_VERSION="${{ steps.release.outputs.version }}"
-          PUBLISHED_LATEST_VERSION="$(read_image_version latest)"
-          PUBLISHED_TARGET_VERSION="$(read_image_version "$TARGET_VERSION")"
-
-          echo "published_latest_version=$PUBLISHED_LATEST_VERSION" >> "$GITHUB_OUTPUT"
-          echo "published_target_version=$PUBLISHED_TARGET_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Compare versions
-        id: compare
-        run: |
-          TARGET_VERSION="${{ steps.release.outputs.version }}"
-          PUBLISHED_LATEST_VERSION="${{ steps.current.outputs.published_latest_version }}"
-          PUBLISHED_TARGET_VERSION="${{ steps.current.outputs.published_target_version }}"
-          if [ "$PUBLISHED_LATEST_VERSION" != "$TARGET_VERSION" ] || [ "$PUBLISHED_TARGET_VERSION" != "$TARGET_VERSION" ]; then
-            echo "needs_update=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "needs_update=false" >> "$GITHUB_OUTPUT"
-          fi
-
   build:
-    needs: check
-    if: needs.check.outputs.needs_update == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -117,9 +60,9 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           build-args: |
-            OPENCODE_VERSION=${{ needs.check.outputs.version }}
+            OPENCODE_VERSION=${{ inputs.opencode_version }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=ghcr.io/pilinux/opencode,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=ghcr.io/dimpen/opencode,push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -136,8 +79,7 @@ jobs:
           retention-days: 1
 
   merge:
-    needs: [check, build]
-    if: needs.check.outputs.needs_update == 'true'
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -164,10 +106,10 @@ jobs:
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
-            -t ghcr.io/pilinux/opencode:${{ needs.check.outputs.version }} \
-            -t ghcr.io/pilinux/opencode:latest \
-            $(printf 'ghcr.io/pilinux/opencode@sha256:%s ' *)
+            -t ghcr.io/dimpen/opencode:${{ inputs.opencode_version }} \
+            -t ghcr.io/dimpen/opencode:latest \
+            $(printf 'ghcr.io/dimpen/opencode@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/pilinux/opencode:${{ needs.check.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/dimpen/opencode:${{ inputs.opencode_version }}
