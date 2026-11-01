@@ -1,34 +1,53 @@
-FROM node:24.21.0-bookworm
+FROM ubuntu:22.04
 
 ARG OPENCODE_VERSION=latest
 
 # set working directory
-WORKDIR /app
+WORKDIR /workspace
 
 # check architecture
 RUN uname -m
 
-# install opencode globally
-RUN npm i -g "opencode-ai@${OPENCODE_VERSION}" && \
-  installed_version_raw="$(opencode --version)" && \
-  installed_version="${installed_version_raw#v}" && \
-  echo "Installed opencode version: ${installed_version}" && \
-  if [ "${OPENCODE_VERSION}" != "latest" ] && [ "${installed_version}" != "${OPENCODE_VERSION}" ]; then \
-    echo "Expected opencode version ${OPENCODE_VERSION}, got ${installed_version}" >&2; \
-    exit 1; \
-  fi
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    tar \
+    sudo \
+    zsh \
+    passwd \
+    util-linux \
+    findutils
 
-# non-root user (recommended)
-# replace the base image's node user so that opencode owns UID/GID 1000
-RUN userdel -r node && \
-  groupadd -g 1000 opencode && \
+# install opencode globally
+RUN version="$OPENCODE_VERSION"; \
+    if [ "$version" = "latest" ]; then version=""; fi; \
+    curl -fsSL https://opencode.ai/v2/install -o /tmp/install-opencode.sh \
+    && SHELL=/bin/bash VERSION="$version" bash /tmp/install-opencode.sh --no-modify-path \
+    && install -m 0755 /root/.opencode/bin/opencode /usr/local/bin/opencode \
+    && rm /tmp/install-opencode.sh \
+    && installed_version="$(opencode --version)" \
+    && installed_version="${installed_version##* }" \
+    && installed_version="${installed_version#v}" \
+    && if [ "$version" != "" ] && [ "$installed_version" != "$version" ]; then \
+         echo "Expected $version, got $installed_version" >&2; \
+         exit 1; \
+       fi
+
+# create a non-root opencode user with UID/GID 1000
+RUN groupadd -g 1000 opencode && \
   useradd -m -u 1000 -g opencode -s /bin/bash opencode
+
+RUN echo 'opencode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/opencode \
+    && chmod 0440 /etc/sudoers.d/opencode \
+    && visudo -cf /etc/sudoers.d/opencode
 
 # create necessary directories and set permissions
 RUN mkdir -p /home/opencode/.local/share/opencode/ && \
   mkdir -p /home/opencode/.local/state/opencode && \
   mkdir -p /home/opencode/.config/opencode/ && \
-  chown -R opencode:opencode /home/opencode
+  mkdir -p /workspace && \
+  chown -R opencode:opencode /home/opencode /workspace
+  
 
 # the entrypoint starts as root, remaps opencode to PUID/PGID and drops privileges
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
