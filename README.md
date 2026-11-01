@@ -5,6 +5,7 @@ A community-maintained Docker image for [OpenCode](https://github.com/anomalyco/
 This fork of [pilinux/opencode-docker](https://github.com/pilinux/opencode-docker) is intended for running **OpenCode 2** with persistent data and configurable user/group IDs. OpenCode runs as a non-root user, with passwordless `sudo` available when system packages need to be installed inside the container.
 
 Images are built **manually** using GitHub Actions and published to GitHub Container Registry (GHCR):
+
 [GitHub Container Registry](https://github.com/dimpen/opencode-docker/pkgs/container/opencode)
 
 **There are no scheduled or automatic update builds.** The `:latest` image contains the OpenCode version installed when that tag was last built manually; it is not guaranteed to match the newest upstream release.
