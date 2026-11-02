@@ -31,10 +31,14 @@ if [ "$(id -u)" = "0" ]; then
 
     # fix ownership only when something is off, instead of a full chown on every start
     if [ -n "$(find /home/opencode/.config /home/opencode/.local \( ! -user "${PUID}" -o ! -group "${PGID}" \) -print -quit)" ]; then
-        chown -R "${PUID}:${PGID}" /home/opencode/.config /home/opencode/.local
+        chown -R "${PUID}:${PGID}" /home/opencode/.config /home/opencode/.local /workspace
     fi
     if [ "$(stat -c %u:%g /home/opencode)" != "${PUID}:${PGID}" ]; then
         chown "${PUID}:${PGID}" /home/opencode
+    fi
+    
+    if [ "$(stat -c '%u:%g' /workspace)" != "${PUID}:${PGID}" ]; then
+    chown "${PUID}:${PGID}" /workspace
     fi
 
     export USER=opencode LOGNAME=opencode
